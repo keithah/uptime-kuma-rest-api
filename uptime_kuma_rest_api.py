@@ -197,8 +197,8 @@ def extract_filters():
     """Extract filters from both query parameters and JSON body, with query params taking precedence"""
     filters = {}
     
-    # Start with JSON body filters if present
-    if request.json and 'filters' in request.json:
+    # Start with JSON body filters if present (only for requests with JSON)
+    if request.is_json and request.json and 'filters' in request.json:
         filters.update(request.json['filters'])
     
     # Override with query parameters (query params take precedence)
@@ -473,17 +473,9 @@ def test_notification(notification_id):
     if not kuma_client.authenticated:
         return jsonify({'error': 'Not connected or authenticated'}), 401
     
-    # Get notification data
+    # Get notification data - notifications_cache is a dict with string keys
     notifications = kuma_client.notifications_cache
-    if isinstance(notifications, list):
-        # Find notification by ID in list
-        notification = None
-        for notif in notifications:
-            if notif.get('id') == notification_id:
-                notification = notif
-                break
-    else:
-        notification = notifications.get(str(notification_id))
+    notification = notifications.get(str(notification_id))
     
     if not notification:
         return jsonify({'error': 'Notification not found'}), 404
@@ -494,6 +486,7 @@ def test_notification(notification_id):
         nonlocal result
         result = response
     
+    # Use the notification object directly - the test endpoint expects the full notification
     kuma_client.sio.emit('testNotification', notification, callback=test_callback)
     
     # Wait for callback response
