@@ -1,138 +1,407 @@
 # Uptime Kuma REST API Wrapper
 
-A Flask-based REST API wrapper for Uptime Kuma's Socket.io API, enabling programmatic monitor creation and management via HTTP endpoints.
+A comprehensive REST API wrapper for Uptime Kuma's Socket.io API, enabling full monitor and notification management via simple HTTP endpoints and curl commands.
 
 ## Features
 
-- **HTTP REST API** for Uptime Kuma monitor management
-- **Bulk monitor creation** - create multiple monitors at once
-- **Bulk monitor updates** - update multiple monitors using Socket.io directly
-- **Monitor listing and grouping** - retrieve and filter monitors by group
-- **Automatic authentication** using Socket.io callbacks
-- **Environment variable configuration**
-- **Real-time connection status** monitoring
+- **Complete REST API** for Uptime Kuma management
+- **Monitor Operations**: Create, list, update, pause, resume, delete
+- **Bulk Operations**: Update, control, and manage multiple monitors at once
+- **Notification Management**: Create, list, test, delete notifications
+- **Advanced Filtering**: By group, tag, name patterns, and monitor type
+- **Bulk Notification Assignment**: Assign/remove notifications from multiple monitors
+- **Query Parameter Filtering**: Use simple `?group=X&tag=Y` instead of JSON for all bulk operations
+- **.env Configuration**: Simple environment variable setup
+- **Zero Dependencies**: Just curl for all operations
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
+### 1. Installation
+
 ```bash
-git clone https://github.com/your-username/uptime-kuma-rest-api.git
+git clone https://github.com/keithah/uptime-kuma-rest-api.git
 cd uptime-kuma-rest-api
-```
-
-2. Install dependencies:
-```bash
 pip install -r requirements.txt
 ```
 
-3. Configure environment variables:
+### 2. Configuration
+
+Copy the example environment file and configure it:
+
 ```bash
-export UPTIME_KUMA_URL="http://your-uptime-kuma-server:3001"
-export UPTIME_KUMA_USERNAME="your-username"
-export UPTIME_KUMA_PASSWORD="your-password"
+cp .env.example .env
 ```
 
-4. Run the API wrapper:
+Edit `.env`:
+```bash
+UPTIME_KUMA_URL=http://localhost:3001
+UPTIME_KUMA_USERNAME=admin
+UPTIME_KUMA_PASSWORD=your_password_here
+```
+
+### 3. Start the API
+
 ```bash
 python uptime_kuma_rest_api.py
 ```
 
 The API will be available at `http://127.0.0.1:5001`
 
-## API Endpoints
+## API Endpoints & Examples
 
 ### Health Check
-```bash
-GET /health
-```
-Returns connection and authentication status.
 
-### Create Single Monitor
-```bash
-POST /monitors
-Content-Type: application/json
+Check if the API is connected and authenticated:
 
-{
-  "name": "My Website",
-  "url": "https://example.com",
-  "description": "Monitor my website"
-}
+```bash
+curl http://127.0.0.1:5001/health
 ```
 
-### Create Multiple Monitors
-```bash
-POST /monitors/bulk
-Content-Type: application/json
+### Monitor Management
 
-[
-  {
-    "name": "Website 1",
-    "url": "https://example1.com"
-  },
-  {
-    "name": "Website 2", 
-    "url": "https://example2.com"
-  }
-]
+#### List All Monitors
+```bash
+# List all monitors
+curl http://127.0.0.1:5001/monitors
+
+# List monitors in a specific group
+curl "http://127.0.0.1:5001/monitors?group=Production"
+
+# List monitors with a specific tag
+curl "http://127.0.0.1:5001/monitors?tag=critical"
+
+# List monitors matching name pattern (wildcards)
+curl "http://127.0.0.1:5001/monitors?name_pattern=web-*"
+
+# List monitors by type
+curl "http://127.0.0.1:5001/monitors?type=http"
+
+# Include groups in results
+curl "http://127.0.0.1:5001/monitors?include_groups=true"
 ```
 
-### Reconnect
-```bash
-POST /connect
-```
-Manually reconnect and authenticate to Uptime Kuma.
-
-## Configuration
-
-Configure the API using environment variables:
-
-- `UPTIME_KUMA_URL` - Your Uptime Kuma server URL (default: `http://localhost:3001`)
-- `UPTIME_KUMA_USERNAME` - Username for authentication (default: `admin`)
-- `UPTIME_KUMA_PASSWORD` - Password for authentication (default: `admin`)
-
-## Monitor Defaults
-
-The API automatically sets sensible defaults for HTTP monitors:
-
-- **Type**: `http`
-- **Method**: `GET`
-- **Interval**: `300` seconds (5 minutes)
-- **Max Retries**: `3`
-- **Retry Interval**: `60` seconds
-- **Timeout**: `30` seconds
-- **Active**: `true`
-- **Accepted Status Codes**: `["200-299"]`
-
-You can override any of these by including them in your request.
-
-## Example Usage
-
-Create a website monitor:
+#### Create Single Monitor
 ```bash
 curl -X POST http://127.0.0.1:5001/monitors \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Blog",
-    "url": "https://myblog.com",
-    "description": "Monitor my personal blog",
-    "interval": 60
+    "name": "My Website",
+    "url": "https://example.com",
+    "interval": 300,
+    "maxretries": 3,
+    "retryInterval": 60
   }'
 ```
 
-Create multiple monitors at once:
+#### Create Multiple Monitors
 ```bash
 curl -X POST http://127.0.0.1:5001/monitors/bulk \
   -H "Content-Type: application/json" \
   -d '[
     {
-      "name": "API Server",
-      "url": "https://api.example.com/health"
+      "name": "Website 1",
+      "url": "https://example1.com"
     },
     {
-      "name": "Web App",
-      "url": "https://app.example.com"
+      "name": "Website 2",
+      "url": "https://example2.com"
     }
   ]'
+```
+
+#### Bulk Update Monitors
+
+Update all monitors in a group (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?group=Media%20Playback" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "interval": 180,
+    "retryInterval": 30,
+    "maxretries": 3
+  }'
+```
+
+Update monitors with specific tag (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?tag=production" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timeout": 45
+  }'
+```
+
+Update monitors matching name pattern (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?name_pattern=api-*" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "interval": 60,
+    "maxretries": 5
+  }'
+```
+
+You can also use the traditional JSON body format:
+```bash
+curl -X PUT http://127.0.0.1:5001/monitors/bulk-update \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filters": {
+      "group": "Media Playback"
+    },
+    "updates": {
+      "interval": 180,
+      "retryInterval": 30,
+      "maxretries": 3
+    }
+  }'
+```
+
+#### Monitor Control Operations
+
+```bash
+# Pause a monitor
+curl -X POST http://127.0.0.1:5001/monitors/123/pause
+
+# Resume a monitor
+curl -X POST http://127.0.0.1:5001/monitors/123/resume
+
+# Delete a monitor
+curl -X DELETE http://127.0.0.1:5001/monitors/123
+```
+
+#### Bulk Monitor Control
+
+Pause all monitors in a group (using query parameters):
+```bash
+curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?group=Maintenance&action=pause" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Resume monitors with specific tag (using query parameters):
+```bash
+curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?tag=staging&action=resume" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Delete monitors matching name pattern (using query parameters):
+```bash
+curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?name_pattern=temp-*&action=delete" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+You can also use the traditional JSON body format:
+```bash
+curl -X POST http://127.0.0.1:5001/monitors/bulk-control \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filters": {
+      "group": "Maintenance"
+    },
+    "action": "pause"
+  }'
+```
+
+### Notification Management
+
+#### List All Notifications
+```bash
+curl http://127.0.0.1:5001/notifications
+```
+
+#### Create Notification
+```bash
+# Slack notification example
+curl -X POST http://127.0.0.1:5001/notifications \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "slack",
+    "name": "Production Alerts",
+    "slackWebhookURL": "https://hooks.slack.com/your-webhook-url",
+    "slackChannel": "#alerts"
+  }'
+
+# Email notification example
+curl -X POST http://127.0.0.1:5001/notifications \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "smtp",
+    "name": "Email Alerts",
+    "smtpHost": "smtp.gmail.com",
+    "smtpPort": 587,
+    "smtpSecure": "tls",
+    "smtpUsername": "your-email@gmail.com",
+    "smtpPassword": "your-password",
+    "emailFrom": "alerts@yourcompany.com",
+    "emailTo": "admin@yourcompany.com"
+  }'
+```
+
+#### Test Notification
+```bash
+curl -X POST http://127.0.0.1:5001/notifications/1/test
+```
+
+#### Delete Notification
+```bash
+curl -X DELETE http://127.0.0.1:5001/notifications/1
+```
+
+#### Bulk Assign Notifications to Monitors
+
+Add notifications to all monitors in a group (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?group=Production&notification_ids=1,2&action=add" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Remove notifications from monitors with specific tag (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?tag=maintenance&notification_ids=1&action=remove" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Add notifications to monitors matching pattern (using query parameters):
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?name_pattern=critical-*&notification_ids=1,2,3&action=add" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+You can also use the traditional JSON body format:
+```bash
+curl -X PUT http://127.0.0.1:5001/monitors/bulk-notifications \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filters": {
+      "group": "Production"
+    },
+    "notification_ids": [1, 2],
+    "action": "add"
+  }'
+```
+
+### Settings
+
+#### Get Current Settings
+```bash
+curl http://127.0.0.1:5001/settings
+```
+
+## Filtering Options
+
+All bulk operations support these filter combinations:
+
+- `group`: Filter by monitor group name
+- `tag`: Filter by tag name
+- `name_pattern`: Filter by name using wildcards (`*`, `?`)
+- `type`: Filter by monitor type (`http`, `tcp`, `dns`, etc.)
+- `include_groups`: Include group monitors in results (default: false)
+
+### Filter Examples
+
+```bash
+# Multiple filters using query parameters (AND logic)
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?group=Production&tag=critical&type=http" \
+  -H "Content-Type: application/json" \
+  -d '{"interval": 60}'
+
+# Same thing using JSON body format
+curl -X PUT http://127.0.0.1:5001/monitors/bulk-update \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filters": {
+      "group": "Production",
+      "tag": "critical",
+      "type": "http"
+    },
+    "updates": {
+      "interval": 60
+    }
+  }'
+```
+
+**Note:** Query parameters take precedence over JSON body filters when both are provided.
+
+## Configuration Options
+
+Environment variables in `.env`:
+
+```bash
+# Required
+UPTIME_KUMA_URL=http://localhost:3001
+UPTIME_KUMA_USERNAME=admin
+UPTIME_KUMA_PASSWORD=your_password_here
+
+# Optional API server settings
+API_HOST=127.0.0.1
+API_PORT=5001
+API_DEBUG=false
+```
+
+## Common Use Cases
+
+### 1. Update All Production Monitors (Simple Query Params)
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?tag=production" \
+  -H "Content-Type: application/json" \
+  -d '{"interval": 300, "maxretries": 3}'
+```
+
+### 2. Add Slack Notifications to Critical Services (Simple Query Params)
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?tag=critical&notification_ids=1&action=add" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### 3. Pause All Staging Monitors (Simple Query Params)
+```bash
+curl -X POST "http://127.0.0.1:5001/monitors/bulk-control?group=Staging&action=pause" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### 4. Update All API Monitors (Simple Query Params)
+```bash
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?name_pattern=*api*" \
+  -H "Content-Type: application/json" \
+  -d '{"timeout": 30, "interval": 120}'
+```
+
+### 5. Complex Multi-Filter Example
+```bash
+# Update all HTTP monitors in Production group with critical tag
+curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?group=Production&tag=critical&type=http" \
+  -H "Content-Type: application/json" \
+  -d '{"interval": 60, "timeout": 45}'
+```
+
+## Error Handling
+
+All endpoints return JSON responses with consistent error format:
+
+```json
+{
+  "success": false,
+  "error": "Error description"
+}
+```
+
+Successful bulk operations return detailed results:
+
+```json
+{
+  "results": [...],
+  "total": 10,
+  "successful": 9,
+  "failed": 1
+}
 ```
 
 ## Requirements
@@ -141,65 +410,11 @@ curl -X POST http://127.0.0.1:5001/monitors/bulk \
 - Uptime Kuma server with authentication enabled
 - Network access to your Uptime Kuma instance
 
-## Advanced Usage - Direct Socket.io Operations
-
-While the REST API wrapper provides HTTP endpoints for monitor creation, you can also use Python scripts to directly interact with Uptime Kuma's Socket.io API for more advanced operations like bulk updates.
-
-### Bulk Update Monitors by Group
-
-```python
-#!/usr/bin/env python3
-import socketio
-import time
-import os
-
-# Configuration from environment
-UPTIME_KUMA_URL = os.getenv("UPTIME_KUMA_URL")
-USERNAME = os.getenv("UPTIME_KUMA_USERNAME")
-PASSWORD = os.getenv("UPTIME_KUMA_PASSWORD")
-
-sio = socketio.Client()
-
-# Connect and authenticate
-sio.connect(UPTIME_KUMA_URL)
-sio.emit('login', {
-    'username': USERNAME,
-    'password': PASSWORD,
-    'token': ''
-}, callback=lambda r: print("Authenticated" if r.get('ok') else "Auth failed"))
-
-# Listen for monitor list
-@sio.on('monitorList')
-def on_monitor_list(data):
-    # Find monitors in a specific group
-    for monitor_id, monitor in data.items():
-        if monitor.get('parent') == GROUP_ID:  # Replace GROUP_ID
-            # Update monitor settings
-            monitor['interval'] = 180
-            monitor['retryInterval'] = 30
-            monitor['maxretries'] = 3
-            sio.emit('editMonitor', monitor)
-
-# Wait for operations to complete
-time.sleep(5)
-sio.disconnect()
-```
-
-### List All Monitors
-
-```python
-@sio.on('monitorList')
-def on_monitor_list(data):
-    for monitor_id, monitor in data.items():
-        print(f"{monitor['name']} (ID: {monitor['id']}, Type: {monitor['type']})")
-```
-
 ## Limitations
 
-- REST API currently supports HTTP monitor creation only
-- Direct Socket.io operations require understanding of Uptime Kuma's internal API
 - Uses Uptime Kuma's internal Socket.io API (not officially supported)
 - API may break with future Uptime Kuma updates
+- Rate limited by Socket.io timeouts
 
 ## Contributing
 
