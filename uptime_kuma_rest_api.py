@@ -390,11 +390,38 @@ def bulk_update_monitors():
 
 @app.route('/notifications', methods=['GET'])
 def list_notifications():
-    """List all notifications"""
+    """List all notifications with simplified output option"""
     if not kuma_client.authenticated:
         return jsonify({'error': 'Not connected or authenticated'}), 401
     
     notifications = kuma_client.notifications_cache
+    
+    # Support simplified output for easy reference
+    if request.args.get('simple') == 'true':
+        simple_list = []
+        # Check if notifications is a list or dict
+        if isinstance(notifications, list):
+            for notification in notifications:
+                simple_list.append({
+                    'id': notification.get('id'),
+                    'name': notification.get('name', 'Unnamed'),
+                    'type': notification.get('type', 'unknown'),
+                    'active': notification.get('active', True)
+                })
+        else:
+            for nid, notification in notifications.items():
+                simple_list.append({
+                    'id': int(nid),
+                    'name': notification.get('name', 'Unnamed'),
+                    'type': notification.get('type', 'unknown'),
+                    'active': notification.get('active', True)
+                })
+        return jsonify({
+            'notifications': simple_list,
+            'count': len(simple_list),
+            'usage_tip': 'Use the ID numbers in notification_ids for bulk operations'
+        })
+    
     return jsonify({'notifications': notifications, 'count': len(notifications)})
 
 @app.route('/notifications', methods=['POST'])
@@ -538,8 +565,8 @@ def bulk_assign_notifications():
     
     results = []
     for monitor in monitors_to_update:
-        # Update notification list
-        if 'notificationIDList' not in monitor:
+        # Update notification list - ensure it exists and is a dict
+        if 'notificationIDList' not in monitor or not isinstance(monitor['notificationIDList'], dict):
             monitor['notificationIDList'] = {}
         
         if action == 'add':
@@ -566,6 +593,63 @@ def bulk_assign_notifications():
         'successful': successful,
         'failed': len(results) - successful,
         'action': action
+    })
+
+# Streamlined notification replacement endpoint
+@app.route('/monitors/set-notifications', methods=['PUT'])
+def set_monitor_notifications():
+    """Replace all notifications for monitors matching filters - much simpler than add/remove operations"""
+    if not kuma_client.authenticated:
+        return jsonify({'error': 'Not connected or authenticated'}), 401
+    
+    filters = extract_filters()
+    
+    # Get notification_ids from JSON body or query params
+    notification_ids = []
+    
+    if request.json:
+        notification_ids = request.json.get('notification_ids', [])
+    
+    # Also support comma-separated notification_ids in query params
+    if request.args.get('notification_ids'):
+        notification_ids = [int(x.strip()) for x in request.args.get('notification_ids').split(',')]
+    
+    # Allow empty list to clear all notifications
+    if notification_ids is None:
+        return jsonify({'error': 'notification_ids parameter is required (use empty array [] to clear all)'}), 400
+    
+    # Get monitors to update
+    monitors_to_update = kuma_client.filter_monitors(filters)
+    
+    if not monitors_to_update:
+        return jsonify({'message': 'No monitors found matching criteria', 'updated': 0})
+    
+    results = []
+    for monitor in monitors_to_update:
+        # Replace entire notification list
+        new_notification_list = {}
+        for nid in notification_ids:
+            new_notification_list[str(nid)] = True
+        
+        monitor['notificationIDList'] = new_notification_list
+        
+        result = kuma_client.update_monitor(monitor)
+        results.append({
+            'id': monitor['id'],
+            'name': monitor['name'],
+            'success': result.get('ok', False),
+            'error': result.get('msg') if not result.get('ok') else None,
+            'notifications_set': notification_ids
+        })
+        time.sleep(0.5)
+    
+    successful = sum(1 for r in results if r['success'])
+    return jsonify({
+        'results': results,
+        'total': len(results),
+        'successful': successful,
+        'failed': len(results) - successful,
+        'notifications_set': notification_ids
     })
 
 # Monitor Control Operations

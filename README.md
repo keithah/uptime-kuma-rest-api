@@ -250,40 +250,53 @@ curl -X POST http://127.0.0.1:5001/notifications/1/test
 curl -X DELETE http://127.0.0.1:5001/notifications/1
 ```
 
-#### Bulk Assign Notifications to Monitors
+#### Notification Management
 
-Add notifications to all monitors in a group (using query parameters):
+First, get your notification IDs:
+```bash
+# Get notification IDs and names
+curl "http://127.0.0.1:5001/notifications?simple=true"
+```
+
+#### Set Notifications (Recommended - Simple!)
+
+Replace all notifications for monitors in one command:
+```bash
+# Set ms-alerts (ID 2) for all Tailscale monitors
+curl -X PUT "http://127.0.0.1:5001/monitors/set-notifications?group=Tailscale&notification_ids=2" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Set hadm-plex (ID 1) for Media Playback group
+curl -X PUT "http://127.0.0.1:5001/monitors/set-notifications?group=Media%20Playback&notification_ids=1" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Set multiple notifications for critical monitors
+curl -X PUT "http://127.0.0.1:5001/monitors/set-notifications?tag=critical&notification_ids=1,2" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Clear all notifications from monitors
+curl -X PUT "http://127.0.0.1:5001/monitors/set-notifications?group=Test&notification_ids=" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+#### Add/Remove Notifications (Advanced)
+
+Add notifications to monitors:
 ```bash
 curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?group=Production&notification_ids=1,2&action=add" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
-Remove notifications from monitors with specific tag (using query parameters):
+Remove specific notifications:
 ```bash
 curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?tag=maintenance&notification_ids=1&action=remove" \
   -H "Content-Type: application/json" \
   -d '{}'
-```
-
-Add notifications to monitors matching pattern (using query parameters):
-```bash
-curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?name_pattern=critical-*&notification_ids=1,2,3&action=add" \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-You can also use the traditional JSON body format:
-```bash
-curl -X PUT http://127.0.0.1:5001/monitors/bulk-notifications \
-  -H "Content-Type: application/json" \
-  -d '{
-    "filters": {
-      "group": "Production"
-    },
-    "notification_ids": [1, 2],
-    "action": "add"
-  }'
 ```
 
 ### Settings
@@ -353,9 +366,12 @@ curl -X PUT "http://127.0.0.1:5001/monitors/bulk-update?tag=production" \
   -d '{"interval": 300, "maxretries": 3}'
 ```
 
-### 2. Add Slack Notifications to Critical Services (Simple Query Params)
+### 2. Set Notifications for Critical Services (Simple!)
 ```bash
-curl -X PUT "http://127.0.0.1:5001/monitors/bulk-notifications?tag=critical&notification_ids=1&action=add" \
+# First get notification IDs
+curl "http://127.0.0.1:5001/notifications?simple=true"
+# Then set the notifications
+curl -X PUT "http://127.0.0.1:5001/monitors/set-notifications?tag=critical&notification_ids=1" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
