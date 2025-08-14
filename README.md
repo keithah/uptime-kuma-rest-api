@@ -1,11 +1,13 @@
 # Uptime Kuma REST API Wrapper
 
-A Flask-based REST API wrapper for Uptime Kuma's Socket.io API, enabling programmatic monitor creation via HTTP endpoints.
+A Flask-based REST API wrapper for Uptime Kuma's Socket.io API, enabling programmatic monitor creation and management via HTTP endpoints.
 
 ## Features
 
 - **HTTP REST API** for Uptime Kuma monitor management
 - **Bulk monitor creation** - create multiple monitors at once
+- **Bulk monitor updates** - update multiple monitors using Socket.io directly
+- **Monitor listing and grouping** - retrieve and filter monitors by group
 - **Automatic authentication** using Socket.io callbacks
 - **Environment variable configuration**
 - **Real-time connection status** monitoring
@@ -139,9 +141,63 @@ curl -X POST http://127.0.0.1:5001/monitors/bulk \
 - Uptime Kuma server with authentication enabled
 - Network access to your Uptime Kuma instance
 
+## Advanced Usage - Direct Socket.io Operations
+
+While the REST API wrapper provides HTTP endpoints for monitor creation, you can also use Python scripts to directly interact with Uptime Kuma's Socket.io API for more advanced operations like bulk updates.
+
+### Bulk Update Monitors by Group
+
+```python
+#!/usr/bin/env python3
+import socketio
+import time
+import os
+
+# Configuration from environment
+UPTIME_KUMA_URL = os.getenv("UPTIME_KUMA_URL")
+USERNAME = os.getenv("UPTIME_KUMA_USERNAME")
+PASSWORD = os.getenv("UPTIME_KUMA_PASSWORD")
+
+sio = socketio.Client()
+
+# Connect and authenticate
+sio.connect(UPTIME_KUMA_URL)
+sio.emit('login', {
+    'username': USERNAME,
+    'password': PASSWORD,
+    'token': ''
+}, callback=lambda r: print("Authenticated" if r.get('ok') else "Auth failed"))
+
+# Listen for monitor list
+@sio.on('monitorList')
+def on_monitor_list(data):
+    # Find monitors in a specific group
+    for monitor_id, monitor in data.items():
+        if monitor.get('parent') == GROUP_ID:  # Replace GROUP_ID
+            # Update monitor settings
+            monitor['interval'] = 180
+            monitor['retryInterval'] = 30
+            monitor['maxretries'] = 3
+            sio.emit('editMonitor', monitor)
+
+# Wait for operations to complete
+time.sleep(5)
+sio.disconnect()
+```
+
+### List All Monitors
+
+```python
+@sio.on('monitorList')
+def on_monitor_list(data):
+    for monitor_id, monitor in data.items():
+        print(f"{monitor['name']} (ID: {monitor['id']}, Type: {monitor['type']})")
+```
+
 ## Limitations
 
-- Currently supports HTTP monitor creation only
+- REST API currently supports HTTP monitor creation only
+- Direct Socket.io operations require understanding of Uptime Kuma's internal API
 - Uses Uptime Kuma's internal Socket.io API (not officially supported)
 - API may break with future Uptime Kuma updates
 
