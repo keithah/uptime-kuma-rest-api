@@ -14,7 +14,12 @@ from uptime_kuma.normalize import (
     normalize_heartbeat,
     normalize_monitor,
 )
-from uptime_kuma.redact import redact_monitor, redact_notification, redact_value
+from uptime_kuma.redact import (
+    redact_monitor,
+    redact_notification,
+    redact_value,
+    scrub_credentials_in_text,
+)
 
 # ---------------------------------------------------------------- errors
 
@@ -47,6 +52,10 @@ def test_url_embedded_credentials_scrubbed():
     out = redact_value({"url": "http://admin:hunter2@host:2375"})
     assert "hunter2" not in out["url"]
     assert out["url"].startswith("http://***")
+
+
+def test_bare_embedded_credentials_scrubbed():
+    assert scrub_credentials_in_text("webhook user:hunter2@example.test") == "webhook ***@example.test"
 
 
 def test_nested_redaction_recursive():

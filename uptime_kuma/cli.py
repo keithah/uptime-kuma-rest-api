@@ -85,7 +85,9 @@ def cmd_heartbeats(client: KumaClient, ns) -> int:
                 if dt.datetime.fromisoformat(str(t).replace(" ", "T", 1)) >= cutoff:
                     kept.append(beat)
             except ValueError:
-                kept.append(beat)
+                # A malformed timestamp cannot be proven to fall within the
+                # requested window; exclude it rather than treating it as new.
+                continue
         beats = kept
     beats.sort(key=lambda b: (b["monitor_id"], b["time"] or ""))
     _emit(beats, ns.json)

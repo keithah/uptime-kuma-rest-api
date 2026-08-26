@@ -31,6 +31,14 @@ def test_health_json_exit_0(fake_client, capsys):
     assert data["ok"] is True
 
 
+def test_heartbeats_hours_excludes_unparseable_timestamps(fake_client, capsys):
+    fake_client.all_heartbeats_flat = lambda: [
+        {"monitor_id": 25, "time": "not-a-timestamp", "status": 1},
+    ]
+    assert run(["heartbeats", "--hours", "1", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == []
+
+
 def test_monitors_list_json(fake_client, capsys):
     assert run(["monitors", "list", "--json"]) == 0
     rows = json.loads(capsys.readouterr().out)

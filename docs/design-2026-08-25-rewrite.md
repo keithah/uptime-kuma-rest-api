@@ -133,8 +133,9 @@ All outputs pass through the shared redactor. Consistent envelope:
 ## Config
 
 Env (or `.env`): `UPTIME_KUMA_URL`, `UPTIME_KUMA_USERNAME`,
-`UPTIME_KUMA_PASSWORD`, optional `UPTIME_KUMA_SOCKET_PATH`,
-`API_HOST`/`API_PORT`/`API_DEBUG`. Credentials never logged; config dumps mask them.
+`UPTIME_KUMA_PASSWORD`, optional `UPTIME_KUMA_SOCKET_PATH` and
+`UPTIME_KUMA_TIMEOUT`. The optional Flask adapter binds to `127.0.0.1:5001`;
+credentials are never logged and config dumps mask them.
 
 ## Testing strategy
 
