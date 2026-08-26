@@ -60,7 +60,7 @@ Exposes 7 tools to any MCP client: `health`, `list_monitors`, `find_monitors`,
 `get_heartbeats`, `list_notifications`, `list_maintenance`,
 `kuma_incident_context`. No mutation tools are registered.
 
-Hermes config example:
+Hermes config example (`hermes mcp add --help` shows the equivalent one-shot command):
 
 ```yaml
 mcp_servers:

@@ -83,6 +83,10 @@ exec /absolute/path/to/uptime-kuma-rest-api/.venv/bin/kuma-mcp
 
 Make the wrapper executable, then register it under `mcp_servers:` in the Hermes agent configuration (`~/.hermes/config.yaml`). Do not put credentials in an `env:` block — that persists them plaintext in the settings file; the wrapper exists precisely to keep them out:
 
+```sh
+hermes mcp add --help   # confirm flag names on your build, then add the wrapper as command
+```
+
 ```yaml
 mcp_servers:
   kuma:
@@ -119,6 +123,7 @@ Before any mutation:
 - Confirm the requested field and expected value; show a dry run for bulk operations.
 - Prefer one canary monitor, then read it back and compare the changed field.
 - For fleet changes, record the selected IDs, apply only after explicit authorization, and verify every result.
+- Save the rollback snapshot OUTSIDE any redaction path (for example `kuma monitors list --json > ~/kuma-snapshots/...`). Listings returned by the CLI/MCP are redacted; a redacted snapshot is fine for diffing but NOT byte-complete for restoring secret-bearing fields. Never replay a redacted snapshot into a live monitor — you would write `***` into real settings.
 
 Uptime Kuma v2 `editMonitor` is a **full replacement**, not a JSON merge patch. Never send only `{id, maxretries}`. Preserve all required fields from the current object, including accepted status codes and notification mappings. The project client’s `update_monitor()` performs this full-object update and converts notification ID lists to Kuma’s required map shape (`{"2": true}`); use it instead of hand-building Socket.IO payloads.
 
