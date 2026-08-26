@@ -18,7 +18,7 @@ Credentials come from the environment (or `~/.kuma.env`, sourced however you lik
 
 ```bash
 UPTIME_KUMA_URL=https://uptime.example.com
-UPTIME_KUMA_USERNAME=keith
+UPTIME_KUMA_USERNAME=your_username_here
 UPTIME_KUMA_PASSWORD=...          # dashboard password, or an API key as username/password pair
 ```
 

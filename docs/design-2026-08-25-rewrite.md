@@ -147,10 +147,10 @@ Live smoke (`scripts/smoke_live.sh`) runs only with explicit env.
 
 ## Deployment (this Mac — the Hermes gateway host)
 
-Note: the previous gateway CT (192.168.42.242) is decommissioned; the gateway
-now runs on Keith's Mac. Everything below is local to this machine.
+Note: this deployment section reflects the author's own host layout; adapt
+paths to your machine. Everything runs locally on the gateway host.
 
-- Code at `~/src/uptime-kuma-rest-api` (already cloned), uv venv, `uv pip install -e .`.
+- Code at `~/src/uptime-kuma-rest-api` (cloned), uv venv, `uv pip install -e .`.
 - Env file `~/.hermes/kuma.env` (0600) written from 1Password item
   `uptime kuma` (vault Hermes); never committed.
 - Hermes `~/.hermes/config.yaml`:
@@ -158,7 +158,7 @@ now runs on Keith's Mac. Everything below is local to this machine.
 ```yaml
 mcp_servers:
   kuma:
-    command: /Users/hermes/src/uptime-kuma-rest-api/bin/kuma-mcp-wrapper
+    command: /absolute/path/to/uptime-kuma-rest-api/bin/kuma-mcp-wrapper
     connect_timeout: 30
     timeout: 60
 ```

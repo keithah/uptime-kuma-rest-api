@@ -227,19 +227,19 @@ def test_config_requires_url_username_password(monkeypatch):
     with pytest.raises(KumaError):
         Config.from_env()
 
-    monkeypatch.setenv("UPTIME_KUMA_URL", "https://uptime.hadm.net")
-    monkeypatch.setenv("UPTIME_KUMA_USERNAME", "keith")
+    monkeypatch.setenv("UPTIME_KUMA_URL", "https://kuma.example.com")
+    monkeypatch.setenv("UPTIME_KUMA_USERNAME", "demo")
     monkeypatch.setenv("UPTIME_KUMA_PASSWORD", "pw")
     cfg = Config.from_env()
-    assert cfg.url == "https://uptime.hadm.net"
-    assert cfg.username == "keith"
+    assert cfg.url == "https://kuma.example.com"
+    assert cfg.username == "demo"
     assert cfg.password == "pw"
     masked = repr(cfg.masked()) 
-    assert "pw" not in masked and "keith" in masked
+    assert "pw" not in masked and "demo" in masked
 
 
 def test_config_trailing_slash_stripped(monkeypatch):
-    monkeypatch.setenv("UPTIME_KUMA_URL", "https://uptime.hadm.net/")
+    monkeypatch.setenv("UPTIME_KUMA_URL", "https://kuma.example.com/")
     monkeypatch.setenv("UPTIME_KUMA_USERNAME", "u")
     monkeypatch.setenv("UPTIME_KUMA_PASSWORD", "p")
-    assert Config.from_env().url == "https://uptime.hadm.net"
+    assert Config.from_env().url == "https://kuma.example.com"
