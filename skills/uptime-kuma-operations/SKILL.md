@@ -121,7 +121,7 @@ Mutation examples:
 
 ```sh
 # Preview targets; no change is made.
-.venv/bin/kuma bulk-control pause --group production --dry-run --json
+.venv/bin/kuma bulk-control --action pause --group production --dry-run --json
 
 # A destructive operation requires explicit authorization.
 .venv/bin/kuma monitor pause --id 43 --yes --json

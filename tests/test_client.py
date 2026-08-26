@@ -283,3 +283,12 @@ def test_notification_listing_never_exposes_config():
     c, _ = make_scripted()
     listing = c.list_notifications()
     assert "s3cret" not in str(listing)
+
+
+def test_notification_map_coerces_numeric_strings():
+    assert KumaClient._notification_list_to_map(["2", 3]) == {"2": True, "3": True}
+
+
+def test_notification_map_rejects_non_numeric_entries():
+    with pytest.raises(KumaError):
+        KumaClient._notification_list_to_map(["not-an-id"])

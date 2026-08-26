@@ -9,7 +9,7 @@ dependencies = [
     "flask>=3.0.0",
     "python-socketio[client]>=5.0.0",
     "python-dotenv>=1.0.0",
-    "mcp>=1.0.0",
+    "mcp>=2.0.0",
 ]
 
 [project.optional-dependencies]

@@ -165,3 +165,20 @@ def test_bulk_update_edits_full_monitor_object_not_bare_patch(fake_client):
     assert len(edits) == 1
     assert edits[0]["maxretries"] == 2                                # field applied
     assert edits[0]["url"] == "http://plex:3002/plex/mswest1/sj2"     # object intact
+
+
+def test_set_notifications_uses_full_object_edit(fake_client, capsys):
+    fake_client._transport.script["editMonitor"] = {"ok": True, "msg": "Saved."}
+    assert run(["set-notifications", "--name-pattern", "mswest*", "--notification-ids", "2,3", "--yes", "--json"]) == 0
+    edits = [(e, d) for e, d in fake_client._transport.emits if e == "editMonitor"]
+    assert edits, "expected an editMonitor emit"
+    payload = edits[0][1]
+    assert payload["notificationIDList"] == {"2": True, "3": True}
+
+
+def test_bulk_update_bad_json_is_usage_error(fake_client, capsys):
+    assert run(["bulk-update", "--name-pattern", "x", "--updates", "{not json"]) == 2
+
+
+def test_set_notifications_bad_ids_are_usage_error(fake_client, capsys):
+    assert run(["set-notifications", "--name-pattern", "x", "--notification-ids", "a,b"]) == 2

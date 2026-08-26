@@ -174,7 +174,11 @@ def cmd_bulk_control(client: KumaClient, ns) -> int:
 
 
 def cmd_bulk_update(client: KumaClient, ns) -> int:
-    updates = json.loads(ns.updates) if ns.updates else {}
+    try:
+        updates = json.loads(ns.updates) if ns.updates else {}
+    except json.JSONDecodeError:
+        print("--updates must be valid JSON", file=sys.stderr)
+        return EXIT_USAGE
     if not updates:
         print("--updates JSON required", file=sys.stderr)
         return EXIT_USAGE
@@ -209,17 +213,36 @@ def cmd_bulk_update(client: KumaClient, ns) -> int:
 
 
 def cmd_set_notifications(client: KumaClient, ns) -> int:
-    ids = [int(x) for x in ns.notification_ids.split(",") if x.strip()] if ns.notification_ids else []
+    # Parse + validate IDs first; bad input is a usage error, not a traceback.
+    try:
+        ids = [int(x) for x in ns.notification_ids.split(",") if x.strip()] \
+            if ns.notification_ids else []
+    except ValueError:
+        print("--notification-ids must be comma-separated integers", file=sys.stderr)
+        return EXIT_USAGE
+
     targets = _targets_for_filters(client, ns)
     if ns.dry_run or not ns.yes:
         _emit({"ok": True, "dry_run": True, "notification_ids": ids,
                "would_affect": [{"id": m["id"], "name": m["name"]} for m in targets],
                "note": "pass --yes to apply"}, ns.json)
         return EXIT_OK if ns.dry_run else EXIT_USAGE
+
+    # Kuma v2 has no dedicated event for this: notification links are owned by
+    # editMonitor's FULL REPLACE via updateMonitorNotification(). Apply each
+    # link change through the full-object path so nothing else is clobbered.
     results = []
     for m in targets:
-        resp = _mutate(client, "applyMonitorNotification", {"id": m["id"], "notificationIDList": ids})
-        results.append({"id": m["id"], "ok": bool(resp.get("ok", False))})
+        try:
+            client.update_monitor(m["id"], notificationIDList={str(i): True for i in ids})
+            ok = True
+            err = None
+        except KumaError as exc:
+            ok, err = False, str(exc)
+        row = {"id": m["id"], "ok": ok}
+        if err:
+            row["error"] = err
+        results.append(row)
     failed = sum(1 for r in results if not r["ok"])
     _emit({"total": len(results), "failed": failed, "results": results}, ns.json)
     return EXIT_OK if failed == 0 else EXIT_ERROR

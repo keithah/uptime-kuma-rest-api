@@ -213,7 +213,19 @@ class KumaClient:
         if isinstance(value, dict):
             return value
         if isinstance(value, (list, tuple)):
-            return {str(nid): True for nid in value if isinstance(nid, int)}
+            out = {}
+            for nid in value:
+                if isinstance(nid, bool):
+                    continue
+                if isinstance(nid, int):
+                    out[str(nid)] = True
+                    continue
+                if isinstance(nid, str) and nid.strip().isdigit():
+                    out[str(int(nid))] = True
+                    continue
+                raise KumaError(
+                    f"notificationIDList contains a non-numeric id: {nid!r}")
+            return out
         raise KumaError(f"unsupported notificationIDList shape: {type(value).__name__}")
 
     def update_monitor(self, monitor_id: int, **fields) -> dict:
