@@ -1,6 +1,6 @@
 ---
 name: uptime-kuma-operations
-description: "Use when operating Uptime Kuma v2 with the CLI, MCP, or incident runbooks."
+description: "Use when installing, configuring, investigating, or safely mutating Uptime Kuma v2 via the uptime-kuma-api CLI/MCP."
 version: 1.0.0
 author: Keith Anderson
 license: MIT
@@ -54,6 +54,15 @@ Verify the installation before configuring MCP:
 
 A successful response has `ok: true` and `authenticated: true`. If it fails, classify the error as configuration, authentication, connectivity, or timeout before changing anything.
 
+The console scripts live inside the repository's `.venv`. To call `kuma` from any shell, put it on PATH:
+
+```sh
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$PWD/.venv/bin/kuma" "$HOME/.local/bin/kuma"
+```
+
+The MCP wrapper execs `<repo>/.venv/bin/kuma-mcp`, so pulling new commits changes what the registered server runs. After updating the checkout, rerun the test suite and the `kuma health --json` smoke test before trusting it.
+
 ## Optional Hermes MCP registration
 
 The MCP adapter is read-only. Mutations stay in the explicitly operator-gated CLI.
@@ -72,7 +81,7 @@ set +a
 exec /absolute/path/to/uptime-kuma-rest-api/.venv/bin/kuma-mcp
 ```
 
-Make it executable, then register the command using the Hermes MCP configuration mechanism available on the target installation. The equivalent native entry is:
+Make the wrapper executable, then register it under `mcp_servers:` in the Hermes agent configuration (`~/.hermes/config.yaml`). Do not put credentials in an `env:` block — that persists them plaintext in the settings file; the wrapper exists precisely to keep them out:
 
 ```yaml
 mcp_servers:
@@ -82,14 +91,12 @@ mcp_servers:
     timeout: 60
 ```
 
-Restart or start a new Hermes session as required for MCP configuration changes. Verify the server itself and then the registered tools; a saved config entry is not proof of authentication:
+Hermes spawns stdio MCP servers with a filtered environment — only `PATH`, `HOME`, `USER`, `LANG`, `LC_ALL`, `TERM`, `SHELL`, `TMPDIR`, and `XDG_*` survive — so exports from your shell profile never reach `kuma-mcp`. Sourcing the protected env file inside the wrapper is mandatory, not optional.
 
-```sh
-.venv/bin/kuma-mcp   # protocol process; use the Hermes MCP test command for connectivity
-hermes mcp test kuma
-```
+MCP registration has no hot reload: restart the agent, then verify in a NEW session. A saved config entry is not proof of authentication:
 
-Expected read-only tools are health, monitor listing/search, heartbeats, notifications, maintenance, and incident context.
+- Expected read-only tools: `mcp_kuma_health`, `mcp_kuma_list_monitors`, `mcp_kuma_find_monitors`, `mcp_kuma_get_heartbeats`, `mcp_kuma_list_notifications`, `mcp_kuma_list_maintenance`, `mcp_kuma_kuma_incident_context`.
+- Call the health tool once and require `ok: true`.
 
 ## Investigation workflow
 
@@ -128,9 +135,18 @@ Mutation examples:
 For `maxretries`, use the narrow bulk-update allowlist and verify the result:
 
 ```sh
-.venv/bin/kuma bulk-update --updates '{"maxretries":2}' --name-pattern 'specific-name' --json
-.venv/bin/kuma monitors get --id 43 --json
+# --name-pattern is a shell-style GLOB (fnmatch), case-insensitive — pass the
+# exact monitor name when you mean a single target. Always dry-run first.
+.venv/bin/kuma bulk-update --updates '{"maxretries":2}' \
+  --name-pattern 'exact-monitor-name' --dry-run
+.venv/bin/kuma bulk-update --updates '{"maxretries":2}' \
+  --name-pattern 'exact-monitor-name' --yes --json
+
+# Read back and diff: the only changed field must be maxretries.
+.venv/bin/kuma monitors get --id <id> --json
 ```
+
+Alert timing consequence: with `maxretries=N`, the first N failed checks stay pending and paging fires on failure N+1. Lowering maxretries pages earlier.
 
 Do not use raw Socket.IO mutation payloads unless the current full object has been retrieved, reviewed, and the server’s v2 schema has been confirmed. Never automate destructive operations from the read-only MCP adapter.
 
