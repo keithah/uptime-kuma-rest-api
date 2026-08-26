@@ -70,6 +70,17 @@ mcp_servers:
     timeout: 60
 ```
 
+## Agent skill
+
+A ready-made operations skill (install, config, incident runbooks, safe
+mutations) ships at
+[`skills/uptime-kuma-operations/SKILL.md`](skills/uptime-kuma-operations/SKILL.md).
+Install it into Hermes with:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/keithah/uptime-kuma-rest-api/main/skills/uptime-kuma-operations/SKILL.md --yes
+```
+
 ## REST adapter (optional)
 
 ```bash
@@ -82,7 +93,7 @@ curl http://127.0.0.1:5001/health
 
 ```bash
 uv venv && uv pip install -e '.[dev]'
-.venv/bin/python -m pytest -q               # 88 tests, offline (fake transport)
+.venv/bin/python -m pytest -q               # offline suite (fake transport)
 uvx ruff check uptime_kuma tests bin
 ```
 
