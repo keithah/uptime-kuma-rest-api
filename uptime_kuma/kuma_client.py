@@ -206,6 +206,36 @@ class KumaClient:
                     break
         return out
 
+    # ------------------------------------------------------------ mutations
+
+    @staticmethod
+    def _notification_list_to_map(value: Any) -> dict:
+        """Kuma's editMonitor expects notificationIDList as {id_str: true}."""
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, (list, tuple)):
+            return {str(nid): True for nid in value if isinstance(nid, int)}
+        raise KumaError(f"unsupported notificationIDList shape: {type(value).__name__}")
+
+    def update_monitor(self, monitor_id: int, **fields) -> dict:
+        """Edit a monitor by sending the FULL object (v2 editMonitor is a
+        replace, not a patch) with `fields` applied on top."""
+        monitors = self.list_monitors_raw()
+        rows = list(monitors.values()) if isinstance(monitors, dict) else monitors
+        current = next((m for m in rows if m.get("id") == monitor_id), None)
+        if current is None:
+            raise KumaError(f"no monitor with id {monitor_id}")
+        payload = dict(current)
+        payload.update(fields)
+        if "notificationIDList" in payload:
+            payload["notificationIDList"] = self._notification_list_to_map(
+                payload["notificationIDList"])
+        resp = self._transport_emit_with_reconnect("editMonitor", payload)
+        if not (isinstance(resp, dict) and resp.get("ok")):
+            msg = resp.get("msg") if isinstance(resp, dict) else resp
+            raise KumaError(f"editMonitor failed for monitor {monitor_id}: {msg}")
+        return resp
+
     # ------------------------------------------------------------ composite
 
     def incident_context(self, monitor: int | str, lookback_minutes: int = 60) -> dict:

@@ -125,6 +125,53 @@ def test_reconnect_after_drop():
     assert t.connected is True
 
 
+# ---------------------------------------------------------------- mutations
+
+def test_update_monitor_sends_full_object_with_field_applied():
+    c, t = make_scripted()
+    orig = t.emit_ack
+    calls = []
+    def spy(event, data=None, timeout=15.0):
+        if event == "editMonitor":
+            calls.append((event, data))
+            return {"ok": True, "monitorID": data["id"]}
+        return orig(event, data, timeout)
+    t.emit_ack = spy
+    resp = c.update_monitor(25, maxretries=2)
+    assert resp.get("ok") is True
+    assert len(calls) == 1
+    event, data = calls[0]
+    assert event == "editMonitor"
+    assert data["maxretries"] == 2                                   # field applied
+    assert data["url"] == "http://plex:3002/plex/mswest1/sj2"        # rest preserved
+    assert data["name"] == "mswest1 - SJ2"
+
+
+def test_update_monitor_keeps_notification_map_shape():
+    c, t = make_scripted()
+    t.script = dict(t.script)
+    t.script["getMonitorList"] = {
+        "25": {"id": 25, "name": "mswest1 - SJ2", "type": "http",
+               "notificationIDList": [2, 3]},
+    }
+    orig = t.emit_ack
+    seen = {}
+    def spy(event, data=None, timeout=15.0):
+        if event == "editMonitor":
+            seen.update(data)
+            return {"ok": True}
+        return orig(event, data, timeout)
+    t.emit_ack = spy
+    c.update_monitor(25, maxretries=1)
+    assert seen["notificationIDList"] == {"2": True, "3": True}
+
+
+def test_update_monitor_unknown_id_raises():
+    c, _ = make_scripted()
+    with pytest.raises(KumaError):
+        c.update_monitor(999, maxretries=2)
+
+
 # ---------------------------------------------------------------- reads / fallback
 
 def test_get_monitors_normalized():

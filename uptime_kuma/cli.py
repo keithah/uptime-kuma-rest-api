@@ -194,10 +194,15 @@ def cmd_bulk_update(client: KumaClient, ns) -> int:
         return EXIT_USAGE
     results = []
     for m in targets:
-        payload = dict(allowed)
-        payload["id"] = m["id"]
-        resp = _mutate(client, "editMonitor", payload)
-        results.append({"id": m["id"], "ok": bool(resp.get("ok", False))})
+        try:
+            client.update_monitor(m["id"], **allowed)
+            ok, err = True, None
+        except KumaError as exc:
+            ok, err = False, str(exc)[:160]
+        row = {"id": m["id"], "ok": ok}
+        if err:
+            row["error"] = err
+        results.append(row)
     failed = sum(1 for r in results if not r["ok"])
     _emit({"total": len(results), "failed": failed, "results": results}, ns.json)
     return EXIT_OK if failed == 0 else EXIT_ERROR

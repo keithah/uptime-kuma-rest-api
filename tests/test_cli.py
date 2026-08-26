@@ -141,3 +141,21 @@ def test_bulk_delete_requires_explicit_yes_and_shows_targets(fake_client, capsys
     rc = run(["bulk-control", "--name-pattern", "weekly*", "--action", "delete"])
     assert rc != 0
     assert "weekly cert" in capsys.readouterr().out
+
+
+def test_bulk_update_edits_full_monitor_object_not_bare_patch(fake_client):
+    emitted = []
+    orig = fake_client._transport.emit_ack
+    def spy(event, data=None, timeout=15.0):
+        if event == "editMonitor":
+            emitted.append((event, data))
+            return {"ok": True}
+        return orig(event, data, timeout)
+    fake_client._transport.emit_ack = spy
+    rc = run(["bulk-update", "--name-pattern", "*SJ2*",
+              "--updates", '{"maxretries": 2}', "--yes"])
+    assert rc == 0
+    edits = [d for e, d in emitted if e == "editMonitor"]
+    assert len(edits) == 1
+    assert edits[0]["maxretries"] == 2                                # field applied
+    assert edits[0]["url"] == "http://plex:3002/plex/mswest1/sj2"     # object intact
