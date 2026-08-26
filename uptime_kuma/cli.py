@@ -48,7 +48,6 @@ def cmd_monitors_list(client: KumaClient, ns) -> int:
 
 
 def cmd_monitors_get(client: KumaClient, ns) -> int:
-    from .redact import redact_monitor
     matches = [m for m in client.list_monitors() if str(m["id"]) == str(ns.id)]
     if not matches:
         print(f"no monitor with id {ns.id}", file=sys.stderr)
@@ -76,7 +75,9 @@ def cmd_heartbeats(client: KumaClient, ns) -> int:
             beats = [b for b in beats if b["monitor_id"] == target_id]
     if ns.hours is not None:
         import datetime as dt
-        cutoff = dt.datetime.now() - dt.timedelta(hours=ns.hours)
+        # Beat timestamps from Kuma are timezone-naive server-local strings;
+        # a naive local now() is the only comparable cutoff.
+        cutoff = dt.datetime.now() - dt.timedelta(hours=ns.hours)  # noqa: DTZ005
         kept = []
         for beat in beats:
             t = beat.get("time")
@@ -102,10 +103,7 @@ def cmd_maintenance_list(client: KumaClient, ns) -> int:
 
 
 def cmd_incident_context(client: KumaClient, ns) -> int:
-    ctx = client.incident_context(
-        ns.monitor if ns.monitor.isdigit() else ns.monitor,
-        lookback_minutes=ns.lookback_minutes,
-    )
+    ctx = client.incident_context(ns.monitor, lookback_minutes=ns.lookback_minutes)
     _emit(ctx, ns.json)
     return EXIT_OK
 
@@ -240,7 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.set_defaults(handler=handler, read=True)
         return sp
 
-    h = add_read("health", cmd_health)
+    add_read("health", cmd_health)
 
     mon = sub.add_parser("monitors")
     mon.set_defaults(handler=None)

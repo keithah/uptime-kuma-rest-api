@@ -2,9 +2,9 @@
 import pytest
 
 from uptime_kuma.config import Config
-from uptime_kuma.errors import AuthError, ConnectionError_, TimeoutError_, KumaError
-from uptime_kuma.transport import AckTransport
+from uptime_kuma.errors import AuthError, ConnectionError_, KumaError, TimeoutError_
 from uptime_kuma.kuma_client import KumaClient
+from uptime_kuma.transport import AckTransport
 
 
 def make_cfg(**kw):
@@ -14,10 +14,11 @@ def make_cfg(**kw):
 class FakeTransport(AckTransport):
     """Scriptable fake: handlers map event -> ack value or callable."""
 
-    def __init__(self, script=None, fail_connect=False, drop_acks_for=()):
+    def __init__(self, script=None, fail_connect=False, drop_acks_for=(), fail_emit_once_for=()):
         self.script = script or {}
         self.fail_connect = fail_connect
         self.drop_acks_for = set(drop_acks_for)
+        self.fail_emit_once_for = set(fail_emit_once_for)
         self.connected = False
         self.emits = []
         self.push_handlers = {}
@@ -32,6 +33,9 @@ class FakeTransport(AckTransport):
 
     def emit_ack(self, event, data=None, timeout=15.0):
         self.emits.append((event, data))
+        if event in self.fail_emit_once_for:
+            self.fail_emit_once_for.remove(event)
+            raise ConnectionError_(f"connection dropped for {event}")
         if event in self.drop_acks_for:
             raise TimeoutError_(f"no ack for {event}")
         handler = self.script.get(event)
@@ -118,6 +122,19 @@ def test_connect_failure_raises_connection_error():
         c.ensure_connected()
 
 
+def test_reconnect_after_transport_error():
+    t = FakeTransport(
+        script={
+            "login": login_ok,
+            "getMonitorHeartbeats": {"heartbeatList": []},
+        },
+        fail_emit_once_for={"getMonitorHeartbeats"},
+    )
+    c = KumaClient(make_cfg(), transport=t)
+    assert c.get_monitor_heartbeats(25) == []
+    assert [event for event, _ in t.emits].count("login") == 2
+
+
 def test_reconnect_after_drop():
     c, t = make_scripted()
     t.connected = False  # simulate drop
@@ -178,7 +195,7 @@ def test_get_monitors_normalized():
     c, _ = make_scripted()
     monitors = c.list_monitors()
     assert [m["id"] for m in monitors] == [25, 9]
-    long = [m for m in monitors if m["id"] == 9][0]
+    long = next(m for m in monitors if m["id"] == 9)
     assert long["interval"] == 2073600  # >24h survives
 
 

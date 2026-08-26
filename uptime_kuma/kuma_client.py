@@ -1,6 +1,5 @@
 """Canonical Uptime Kuma client: auth, ack-first/push-fallback reads, orchestration."""
 import fnmatch
-import re
 import threading
 from typing import Any
 
@@ -8,7 +7,7 @@ from .classify import build_incident_context, classify_state, label_for_status
 from .config import Config
 from .errors import AuthError, ConnectionError_, KumaError, TimeoutError_
 from .normalize import flatten_heartbeats, normalize_monitor
-from .redact import redact_notification
+from .redact import redact_notification, scrub_credentials_in_text
 
 
 class KumaClient:
@@ -78,14 +77,7 @@ class KumaClient:
     # ------------------------------------------------------------ plumbing
 
     def _call(self, event: str, data: Any = None) -> Any:
-        self.ensure_connected()
-        try:
-            return self._transport.emit_ack(event, data, timeout=self.cfg.request_timeout)
-        except (ConnectionError, OSError):
-            with self._lock:
-                self.authenticated = False
-                self.ensure_connected()
-            return self._transport.emit_ack(event, data, timeout=self.cfg.request_timeout)
+        return self._transport_emit_with_reconnect(event, data)
 
     def _read_with_fallback(self, event: str, push_event: str) -> Any:
         """Ack first; on timeout wait briefly for the push variant before giving up."""
@@ -110,7 +102,14 @@ class KumaClient:
 
     def _transport_emit_with_reconnect(self, event: str, data: Any = None) -> Any:
         self.ensure_connected()
-        return self._transport.emit_ack(event, data, timeout=self.cfg.request_timeout)
+        try:
+            return self._transport.emit_ack(event, data, timeout=self.cfg.request_timeout)
+        except (ConnectionError_, ConnectionError, OSError):
+            with self._lock:
+                self.authenticated = False
+                self._transport.connected = False
+                self.ensure_connected()
+            return self._transport.emit_ack(event, data, timeout=self.cfg.request_timeout)
 
     # ------------------------------------------------------------ reads
 
@@ -199,7 +198,7 @@ class KumaClient:
         q = (query or "").lower().strip()
         out = []
         for mon in self.list_monitors():
-            hay = f"{mon['name']} {' '.join(t['name'] + ' ' + t['value'] for t in mon['tags'])}".lower()
+            hay = f"{mon['name']} {' '.join((t.get('name') or '') + ' ' + (t.get('value') or '') for t in mon['tags'])}".lower()
             if q in hay or fnmatch.fnmatch(mon["name"] or "", f"*{q}*"):
                 out.append(mon)
                 if len(out) >= limit:
@@ -249,7 +248,7 @@ class KumaClient:
             candidates = [
                 m for m in monitors
                 if needle in (m["name"] or "").lower()
-                or any(needle == t["name"].lower() or needle in t["name"].lower()
+                or any(needle == (t.get("name") or "").lower() or needle in (t.get("name") or "").lower()
                        for t in m["tags"])
             ]
             exact = [m for m in candidates if (m["name"] or "").lower() == needle]
@@ -270,11 +269,9 @@ class KumaClient:
         )
 
 
-_URL_CREDS_RE = re.compile(r"([a-zA-Z][a-zA-Z0-9+.\-]*://)([^/@:\s]+):([^/@\s]+)@")
-
-
 def redact_safe_target(mon: dict) -> str | None:
+    """Monitor target with any embedded user:pass@ credentials masked."""
     target = mon.get("target")
     if isinstance(target, str):
-        return _URL_CREDS_RE.sub(r"\1***@", target)
-    return target
+        return scrub_credentials_in_text(target)
+    return None

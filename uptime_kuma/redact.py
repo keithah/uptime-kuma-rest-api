@@ -53,3 +53,8 @@ def redact_notification(raw: dict) -> dict:
 def redact_monitor(raw: dict) -> dict:
     """Monitors keep useful operational fields; secret-valued keys are masked."""
     return redact_value(dict(raw))
+
+
+def scrub_credentials_in_text(text: str) -> str:
+    """Strip user:pass@ credentials embedded in URLs/strings."""
+    return _scrub_string(text)

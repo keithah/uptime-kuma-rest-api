@@ -60,7 +60,7 @@ def classify_state(
 
     statuses = [b.get("status") for _, b in windowed]
     transitions = sum(
-        1 for a, b in zip(statuses, statuses[1:]) if a != b
+        1 for a, b in zip(statuses, statuses[1:]) if a != b  # noqa: RUF007 - pairwise reads worse here
     )
     if transitions >= 3:
         return "flapping"
@@ -109,7 +109,7 @@ def build_incident_context(
     downs = sum(1 for _, b in windowed if b.get("status") == 0)
     pings = [b.get("ping") for _, b in windowed if b.get("ping") is not None]
 
-    latest_t, latest_beat = (windowed[-1] if windowed else (None, {}))
+    latest_beat = (windowed[-1][1] if windowed else {})
     in_maintenance_window = any(w.get("active") for w in maintenance) or latest_beat.get("status") == 3
 
     is_real_outage = (

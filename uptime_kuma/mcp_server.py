@@ -1,5 +1,4 @@
 """Read-only MCP adapter for incident investigation."""
-from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 

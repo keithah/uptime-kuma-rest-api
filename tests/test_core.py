@@ -1,15 +1,20 @@
 """Tests for pure-logic core modules: errors, redact, normalize, classify, config."""
 import pytest
 
-from uptime_kuma.errors import KumaError, AuthError, ConnectionError_, TimeoutError_
-from uptime_kuma.redact import redact_value, redact_monitor, redact_notification
-from uptime_kuma.normalize import normalize_monitor, normalize_heartbeat, flatten_heartbeats
 from uptime_kuma.classify import (
-    STATUS_LABELS, label_for_status, classify_state,
+    STATUS_LABELS,
     build_incident_context,
+    classify_state,
+    label_for_status,
 )
 from uptime_kuma.config import Config
-
+from uptime_kuma.errors import AuthError, ConnectionError_, KumaError, TimeoutError_
+from uptime_kuma.normalize import (
+    flatten_heartbeats,
+    normalize_heartbeat,
+    normalize_monitor,
+)
+from uptime_kuma.redact import redact_monitor, redact_notification, redact_value
 
 # ---------------------------------------------------------------- errors
 
@@ -143,7 +148,8 @@ def test_status_labels_complete():
 
 def _beat(status, seconds, base=None):
     import datetime as dt
-    t = (base or dt.datetime(2026, 8, 26, 12, 0, 0)) + dt.timedelta(seconds=seconds)
+    # Naive on purpose: mirrors Kuma's timezone-naive beat timestamps.
+    t = (base or dt.datetime(2026, 8, 26, 12, 0, 0)) + dt.timedelta(seconds=seconds)  # noqa: DTZ001
     return {"monitor_id": 25, "status": status, "label": label_for_status(status),
             "time": t.isoformat(), "msg": "", "ping": 50}
 

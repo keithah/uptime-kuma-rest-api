@@ -2,10 +2,10 @@
 import json
 
 import pytest
+import test_client as tc
 
 from uptime_kuma import cli
 from uptime_kuma.errors import AuthError, ConnectionError_, TimeoutError_
-import test_client as tc
 
 
 class FakeKuma(tc.KumaClient):  # reuse scripted behavior
@@ -119,8 +119,6 @@ def test_pause_requires_yes(fake_client):
 def test_pause_with_yes_calls_event(fake_client):
     calls = []
     fake_client._transport.emits.clear()
-    orig = fake_client._transport.emit_ack
-
     def spy(event, data=None, timeout=15.0):
         calls.append((event, data))
         return {"ok": True}

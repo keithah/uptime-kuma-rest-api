@@ -2,9 +2,9 @@
 import json
 
 import pytest
+import test_client as tc
 
 from uptime_kuma import mcp_server
-import test_client as tc
 
 
 @pytest.fixture()

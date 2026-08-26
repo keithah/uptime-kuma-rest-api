@@ -1,7 +1,7 @@
 """Normalize raw Kuma Socket.IO payloads into stable, agent-friendly shapes."""
 from typing import Any
 
-from .classify import STATUS_LABELS, label_for_status
+from .classify import STATUS_LABELS
 
 
 def normalize_monitor(raw: dict) -> dict:

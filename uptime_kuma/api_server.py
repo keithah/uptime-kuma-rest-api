@@ -1,7 +1,7 @@
 """Small Flask REST adapter around the rewritten Kuma client."""
 from flask import Flask, jsonify, request
 
-from .errors import AuthError, ConnectionError_, KumaError, TimeoutError_
+from .errors import KumaError
 from .kuma_client import KumaClient
 
 
