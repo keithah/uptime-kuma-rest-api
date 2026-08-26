@@ -23,14 +23,10 @@ Prerequisites:
 - An account with permission to read monitors; mutations additionally require operator authorization.
 - Hermes only for the optional MCP registration.
 
-Install from the repository:
-
-```sh
-git clone https://github.com/keithah/uptime-kuma-rest-api.git
-cd uptime-kuma-rest-api
-uv venv
-uv pip install -e '.[dev]'
-```
+Set up the package by following the **Install** section of the repository
+README (clone `keithah/uptime-kuma-rest-api`, create an isolated environment,
+editable install with dev extras). All setup commands live in the repository,
+where they are versioned and reviewed as code.
 
 Configure credentials without putting them in the repository, shell history, logs, or chat:
 
@@ -54,7 +50,7 @@ Verify the installation before configuring MCP:
 
 A successful response has `ok: true` and `authenticated: true`. If it fails, classify the error as configuration, authentication, connectivity, or timeout before changing anything.
 
-The console scripts live inside the repository's `.venv`. To call `kuma` from any shell, put it on PATH:
+The console scripts live inside the repository's `.venv`. To call `kuma` from any shell, symlink it onto your PATH (for example into `~/.local/bin`):
 
 ```sh
 mkdir -p "$HOME/.local/bin"
@@ -81,19 +77,13 @@ set +a
 exec /absolute/path/to/uptime-kuma-rest-api/.venv/bin/kuma-mcp
 ```
 
-Make the wrapper executable, then register it under `mcp_servers:` in the Hermes agent configuration (`~/.hermes/config.yaml`). Do not put credentials in an `env:` block — that persists them plaintext in the settings file; the wrapper exists precisely to keep them out:
-
-```sh
-hermes mcp add --help   # confirm flag names on your build, then add the wrapper as command
-```
-
-```yaml
-mcp_servers:
-  kuma:
-    command: /absolute/path/to/kuma-mcp-wrapper
-    connect_timeout: 30
-    timeout: 60
-```
+The repository README's **MCP server** section shows the exact wrapper script
+and the agent configuration entry; the shipped `bin/kuma-mcp-wrapper` header
+documents its behavior. Register the wrapper as a stdio MCP server named
+`kuma` (check `hermes mcp add --help` for your build's flags, or use the
+documented configuration-file shape). Never pass the credentials through the
+server definition's `env` block — that persists them plaintext; the wrapper
+exists precisely to keep them out.
 
 Hermes spawns stdio MCP servers with a filtered environment — only `PATH`, `HOME`, `USER`, `LANG`, `LC_ALL`, `TERM`, `SHELL`, `TMPDIR`, and `XDG_*` survive — so exports from your shell profile never reach `kuma-mcp`. Sourcing the protected env file inside the wrapper is mandatory, not optional.
 
