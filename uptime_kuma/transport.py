@@ -23,7 +23,19 @@ class SocketIOTransport(AckTransport):
     def __init__(self, cfg):
         self.cfg = cfg
         self.connected = False
-        self._sio = socketio.Client(logger=False, engineio_logger=False)
+        # python-socketio defaults to reconnection_attempts=0, which means
+        # retry FOREVER. A client that is dropped without close() therefore
+        # keeps a background thread and socket alive indefinitely, burning
+        # CPU on reconnect attempts. Bound the retries so a stranded or
+        # unreachable transport gives up instead of spinning for days.
+        self._sio = socketio.Client(
+            logger=False,
+            engineio_logger=False,
+            reconnection=True,
+            reconnection_attempts=5,
+            reconnection_delay=1,
+            reconnection_delay_max=30,
+        )
         self._sio.on("connect", self._on_connect)
         self._sio.on("disconnect", self._on_disconnect)
 

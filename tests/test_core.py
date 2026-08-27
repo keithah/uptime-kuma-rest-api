@@ -243,3 +243,27 @@ def test_config_trailing_slash_stripped(monkeypatch):
     monkeypatch.setenv("UPTIME_KUMA_USERNAME", "u")
     monkeypatch.setenv("UPTIME_KUMA_PASSWORD", "p")
     assert Config.from_env().url == "https://kuma.example.com"
+
+
+def test_socketio_transport_bounds_reconnection_attempts():
+    """Infinite reconnects let an abandoned transport spin for days.
+
+    python-socketio's default reconnection_attempts=0 means unlimited. A
+    leaked client then retries forever, which is how the MCP server reached
+    1207 threads and pinned a CPU. The transport must cap its retries.
+    """
+    from uptime_kuma.config import Config
+    from uptime_kuma.transport import SocketIOTransport
+
+    cfg = Config(
+        url="https://kuma.example",
+        username="u",
+        password="p",
+    )
+    transport = SocketIOTransport(cfg)
+    attempts = transport._sio.reconnection_attempts
+
+    assert attempts and attempts > 0, (
+        "reconnection_attempts must be a positive bound; "
+        f"got {attempts!r} (0 means retry forever)"
+    )
