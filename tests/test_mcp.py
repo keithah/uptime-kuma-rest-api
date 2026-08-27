@@ -139,3 +139,37 @@ def test_failed_call_closes_client_instead_of_abandoning_it(counting_client, mon
         "a client whose call failed must be closed; otherwise it keeps "
         "retrying forever in the background"
     )
+
+
+def test_concurrent_tool_calls_serialize_access_to_shared_client(monkeypatch):
+    """The Socket.IO client must not receive overlapping tool calls."""
+    import concurrent.futures
+    import threading
+    import time
+
+    class ConcurrentClient(_CountingClient):
+        active = 0
+        max_active = 0
+        lock = threading.Lock()
+
+        def health(self):
+            with type(self).lock:
+                type(self).active += 1
+                type(self).max_active = max(type(self).max_active, type(self).active)
+            try:
+                time.sleep(0.1)
+            finally:
+                with type(self).lock:
+                    type(self).active -= 1
+            return {"ok": True}
+
+    monkeypatch.setattr(mcp_server, "KumaClient", ConcurrentClient)
+    mcp_server.reset_client_for_tests()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(mcp_server.health) for _ in range(2)]
+            results = [future.result(timeout=4) for future in futures]
+        assert results == [{"service": "uptime-kuma", "ok": True}] * 2
+        assert ConcurrentClient.max_active == 1
+    finally:
+        mcp_server.reset_client_for_tests()

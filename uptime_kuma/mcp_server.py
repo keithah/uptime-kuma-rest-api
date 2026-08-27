@@ -20,6 +20,10 @@ mcp = MCPServer("uptime-kuma")
 # a clean state rather than stranding a retrying transport.
 _client: KumaClient | None = None
 _client_lock = threading.Lock()
+# python-socketio's client object and its callback bookkeeping are not safe for
+# overlapping application-level calls. Serialize the long-lived MCP adapter's
+# calls so a second tool cannot race a reconnect or close on the shared client.
+_call_lock = threading.RLock()
 
 
 def _discard_client_locked() -> None:
@@ -47,8 +51,9 @@ def create_client() -> KumaClient:
 
 def reset_client_for_tests() -> None:
     """Close and clear the cached client (test hook, also safe at shutdown)."""
-    with _client_lock:
-        _discard_client_locked()
+    with _call_lock:
+        with _client_lock:
+            _discard_client_locked()
 
 
 def _call(method: str, *args, **kwargs):
@@ -57,16 +62,17 @@ def _call(method: str, *args, **kwargs):
     Without this, a failed call left the cached client in a half-open state
     that reconnected in the background indefinitely.
     """
-    client = create_client()
-    try:
-        return getattr(client, method)(*args, **kwargs)
-    except Exception:
-        with _client_lock:
-            # Only discard the client we actually used; a concurrent call may
-            # have already replaced it.
-            if _client is client:
-                _discard_client_locked()
-        raise
+    with _call_lock:
+        client = create_client()
+        try:
+            return getattr(client, method)(*args, **kwargs)
+        except Exception:
+            with _client_lock:
+                # Only discard the client we actually used; a concurrent call
+                # cannot replace it while _call_lock is held.
+                if _client is client:
+                    _discard_client_locked()
+            raise
 
 
 def health() -> dict:
