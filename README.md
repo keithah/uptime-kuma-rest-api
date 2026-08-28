@@ -101,3 +101,6 @@ uvx ruff check uptime_kuma tests bin
 ```
 
 Design notes: [`docs/design-2026-08-25-rewrite.md`](docs/design-2026-08-25-rewrite.md).
+
+Compatibility boundaries and the upgrade/soak procedure live in
+[`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md).
