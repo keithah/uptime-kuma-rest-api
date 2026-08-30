@@ -1,23 +1,18 @@
 [project]
-name = "uptime-kuma-api"
-version = "2.1.0"
-description = "Uptime Kuma integration core: REST wrapper, CLI, and read-only MCP adapter"
+name = "kumactl"
+version = "3.0.0"
+description = "kumactl — Uptime Kuma CLI + read-only MCP (native Streamable HTTP) — import uptime_kuma"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = [
-    "flask>=3.0.0,<4.0.0",
-    "python-socketio[client]>=5.0.0,<6.0.0",
-    "python-dotenv>=1.0.0,<2.0.0",
-    "mcp>=2.0.0,<3.0.0",
-]
+dependencies = ["flask>=3.0.0,<4.0.0","python-socketio[client]>=5.0.0,<6.0.0","python-dotenv>=1.0.0,<2.0.0","mcp>=2.0.0,<3.0.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.8.0"]
 
 [project.scripts]
-kuma = "uptime_kuma.cli:main"
-kuma-mcp = "uptime_kuma.mcp_server:main"
+kumactl = "uptime_kuma.cli:main"
+kumactl-mcp = "uptime_kuma.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
