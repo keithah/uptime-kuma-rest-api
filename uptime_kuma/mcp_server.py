@@ -1,5 +1,6 @@
 """Read-only MCP adapter for incident investigation."""
 
+import argparse
 import threading
 
 from mcp.server.mcpserver import MCPServer
@@ -115,11 +116,35 @@ mcp.tool()(list_maintenance)
 mcp.tool(name="kuma_incident_context")(incident_context)
 
 
-def main() -> None:
-    import asyncio
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the standalone MCP transport options."""
+    parser = argparse.ArgumentParser(description="Uptime Kuma read-only MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "streamable-http"),
+        default="stdio",
+        help="MCP transport (default: stdio)",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host")
+    parser.add_argument("--port", type=int, default=8000, help="HTTP bind port")
+    parser.add_argument("--path", default="/mcp", help="Streamable HTTP path")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
 
     try:
-        asyncio.run(mcp.run_stdio_async())
+        if args.transport == "stdio":
+            mcp.run("stdio")
+        else:
+            mcp.run(
+                "streamable-http",
+                host=args.host,
+                port=args.port,
+                streamable_http_path=args.path,
+                stateless_http=False,
+            )
     finally:
         reset_client_for_tests()
 

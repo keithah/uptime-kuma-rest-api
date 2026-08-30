@@ -55,6 +55,28 @@ def test_no_mutating_tools_are_exposed():
     assert not hasattr(mcp_server, "delete_monitor")
 
 
+def test_mcp_parser_supports_native_streamable_http():
+    args = mcp_server.parse_args([
+        "--transport",
+        "streamable-http",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "40108",
+        "--path",
+        "/mcp",
+    ])
+
+    assert args.transport == "streamable-http"
+    assert args.host == "127.0.0.1"
+    assert args.port == 40108
+    assert args.path == "/mcp"
+
+
+def test_mcp_parser_keeps_stdio_as_default():
+    assert mcp_server.parse_args([]).transport == "stdio"
+
+
 # --------------------------------------------------------------- resource leak
 #
 # A long-running stdio MCP server previously created a fresh KumaClient per

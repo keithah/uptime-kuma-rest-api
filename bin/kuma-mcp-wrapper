@@ -9,4 +9,4 @@ fi
 set -a
 . "$ENV_FILE"
 set +a
-exec /Users/hermes/src/uptime-kuma-rest-api/.venv/bin/kuma-mcp
+exec /Users/hermes/src/uptime-kuma-rest-api/.venv/bin/kuma-mcp "$@"
