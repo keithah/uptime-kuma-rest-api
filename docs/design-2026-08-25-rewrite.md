@@ -4,14 +4,12 @@ Date: 2026-08-26
 Status: Approved (research phase concluded; direction chosen by Keith)
 
 ## Problem
-
 Hermes investigates Uptime Kuma alerts via webhook-triggered runs. Today that
 investigation shells out over SSH, copies a multi-GB SQLite DB, and hand-parses
 monitor state. There is no structured, safe, low-context way for an agent to
 answer "what exactly is alerting, what changed, and is it real?"
 
 ## Decision (from research phase)
-
 Layered architecture, one canonical Kuma client core, three thin surfaces:
 
 - **Core** — shared Socket.IO client + normalization + redaction + status
@@ -28,7 +26,6 @@ structured tools instead of SSH/sqlite archaeology.
 Printing Press packaging is explicitly deferred until the interface stabilizes.
 
 ## Non-goals
-
 - Multi-instance Kuma support (config shaped so it can be added later).
 - Writes over MCP (never).
 - Replacing the webhook ingress.
@@ -45,8 +42,8 @@ uptime_kuma/
   normalize.py     # raw monitor/heartbeat/notification dicts -> clean shapes
   redact.py        # recursive secret scrubbing
   classify.py      # status labels + incident_context builder
-  cli.py           # `kuma` argparse CLI
-  mcp_server.py    # read-only MCP stdio server
+  cli.py           # `kumactl` argparse CLI
+  mcp_server.py    # read-only MCP server (stdio + streamable-http via kumactl-mcp --transport streamable-http)
 api_server.py      # Flask REST app (replaces uptime_kuma_rest_api.py)
 tests/             # pytest, offline fakes only
 scripts/smoke_live.sh  # manual live check against real Kuma
@@ -114,7 +111,9 @@ overlapping maintenance windows, and `is_real_outage` convenience bool
 | `kuma_list_notifications()` | redacted channels |
 | `kuma_list_maintenance()` | windows |
 
-### CLI (`kuma`, exit 0 ok / 2 usage / 3 connection / 4 auth / 5 timeout)
+Transport: `kumactl-mcp --transport streamable-http` (native Streamable HTTP, `stateless_http=False`) is the Hermes default; stdio remains available via `kumactl-mcp --transport stdio`.
+
+### CLI (`kumactl`, exit 0 ok / 2 usage / 3 connection / 4 auth / 5 timeout)
 
 Reads: `health`, `monitors list|find|get`, `heartbeats`, `notifications list`,
 `maintenance list`, `incident-context`. All `--json` capable.
@@ -150,23 +149,31 @@ Live smoke (`scripts/smoke_live.sh`) runs only with explicit env.
 Note: this deployment section reflects the author's own host layout; adapt
 paths to your machine. Everything runs locally on the gateway host.
 
-- Code at `~/src/uptime-kuma-rest-api` (cloned), uv venv, `uv pip install -e .`.
+- Code at `~/src/kumactl` (cloned from `keithah/kumactl`), uv venv, `uv pip install -e .`.
 - Env file `~/.hermes/kuma.env` (0600) written from 1Password item
-  `uptime kuma` (vault Hermes); never committed.
+  `uptime kuma` (vault Hermes); never committed. Wrapper prefers `KUMACTL_ENV_FILE` with `KUMA_ENV_FILE` fallback.
 - Hermes `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
-  kuma:
-    command: /absolute/path/to/uptime-kuma-rest-api/bin/kuma-mcp-wrapper
+  kumactl:
+    command: /absolute/path/to/kumactl/bin/kumactl-mcp-wrapper
+    args: ["--transport", "streamable-http", "--host", "127.0.0.1", "--port", "40108", "--path", "/mcp"]
     connect_timeout: 30
     timeout: 60
 ```
 
-  Wrapper sources the env file then execs `.venv/bin/kuma-mcp` (needed because
-  Hermes filters subprocess env).
+  Wrapper sources the env file then execs `.venv/bin/kumactl-mcp` (needed because
+  Hermes filters subprocess env). Native transport: `kumactl-mcp --transport streamable-http --host 127.0.0.1 --port 40108 --path /mcp`.
+
+- For HTTP, register with Hermes as:
+
+```bash
+hermes mcp add kumactl --url http://127.0.0.1:40108/mcp
+```
+
 - REST surface optional here; runnable ad hoc (`python api_server.py`) or as a
-  LaunchAgent later. MCP stdio needs no daemon.
+  LaunchAgent later. MCP stdio needs no daemon; HTTP needs the launchd service `net.hadm.mcp-http.kumactl`.
 - Gateway restart required for MCP registration (agent restart picks up new
   tools); verify with tool listing after restart.
 
