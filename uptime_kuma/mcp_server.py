@@ -52,9 +52,8 @@ def create_client() -> KumaClient:
 
 def reset_client_for_tests() -> None:
     """Close and clear the cached client (test hook, also safe at shutdown)."""
-    with _call_lock:
-        with _client_lock:
-            _discard_client_locked()
+    with _call_lock, _client_lock:
+        _discard_client_locked()
 
 
 def _call(method: str, *args, **kwargs):

@@ -1,12 +1,38 @@
 """Small Flask REST adapter around the rewritten Kuma client."""
+import threading
+
 from flask import Flask, jsonify, request
 
 from .errors import KumaError
 from .kuma_client import KumaClient
 
+_client: KumaClient | None = None
+_client_lock = threading.Lock()
+
+
+def _discard_client_locked() -> None:
+    global _client
+    doomed, _client = _client, None
+    if doomed is not None:
+        try:
+            doomed.close()
+        except Exception:
+            pass
+
 
 def create_client() -> KumaClient:
-    return KumaClient()
+    """Return the process-wide client, creating it on first use."""
+    global _client
+    with _client_lock:
+        if _client is None:
+            _client = KumaClient()
+        return _client
+
+
+def reset_client_for_tests() -> None:
+    """Close and clear the cached client (test hook)."""
+    with _client_lock:
+        _discard_client_locked()
 
 
 def create_app(config: dict | None = None) -> Flask:

@@ -110,7 +110,57 @@ def build_incident_context(
     pings = [b.get("ping") for _, b in windowed if b.get("ping") is not None]
 
     latest_beat = (windowed[-1][1] if windowed else {})
-    in_maintenance_window = any(w.get("active") for w in maintenance) or latest_beat.get("status") == 3
+    # Maintenance masking must be scoped to this monitor: a window for a
+    # different monitor must not suppress is_real_outage. When the
+    # maintenance payload carries monitor association (monitorID,
+    # monitor_id, monitors, monitorList, affectedMonitors, etc.) we check
+    # it; when no association is present the window is treated as
+    # monitor-agnostic (preserves backward compat for legacy tests).
+    def _window_applies_to_monitor(window: dict, monitor_id: Any) -> bool:
+        # Direct single-monitor linkage.
+        for key in ("monitorID", "monitorId", "monitor_id", "monitorIDList"):
+            if key in window:
+                val = window[key]
+                if isinstance(val, (list, tuple, set)):
+                    if monitor_id in val or str(monitor_id) in {str(x) for x in val}:
+                        return True
+                elif val == monitor_id or str(val) == str(monitor_id):
+                    return True
+                # Present but does not match -> this window is for another monitor.
+                return False
+        # Multi-monitor linkage.
+        for key in ("monitors", "monitorList", "affectedMonitors", "monitorIDs", "monitor_ids"):
+            if key in window:
+                val = window[key]
+                candidates: list[Any] = []
+                if isinstance(val, dict):
+                    candidates = list(val.keys()) + list(val.values())
+                elif isinstance(val, (list, tuple, set)):
+                    candidates = list(val)
+                else:
+                    candidates = [val]
+                # Normalize candidates that may be dicts with id fields.
+                normalized: set[str] = set()
+                for c in candidates:
+                    if isinstance(c, dict):
+                        for k in ("id", "monitorID", "monitorId", "monitor_id"):
+                            if k in c:
+                                normalized.add(str(c[k]))
+                    else:
+                        normalized.add(str(c))
+                return str(monitor_id) in normalized
+        # No association field -> treat as global (backward compat).
+        return True
+
+    monitor_id = monitor.get("id")
+    scoped_active = False
+    for w in maintenance:
+        if not w.get("active"):
+            continue
+        if monitor_id is None or _window_applies_to_monitor(w, monitor_id):
+            scoped_active = True
+            break
+    in_maintenance_window = scoped_active or latest_beat.get("status") == 3
 
     is_real_outage = (
         state == "outage"

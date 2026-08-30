@@ -2,6 +2,7 @@
 from typing import Any
 
 from .classify import STATUS_LABELS
+from .redact import scrub_credentials_in_text
 
 
 def normalize_monitor(raw: dict) -> dict:
@@ -14,6 +15,12 @@ def normalize_monitor(raw: dict) -> dict:
 
     path_name = raw.get("pathName")
     group_path = [p.strip() for p in path_name.split("/") if p.strip()] if path_name else []
+
+    # Scrub embedded credentials at the normalization boundary so every
+    # consumer (list, find, incident context, API) inherits a safe value.
+    # This is the single scrub point; callers must not re-expose raw URLs.
+    if isinstance(target, str):
+        target = scrub_credentials_in_text(target)
 
     tags = raw.get("tags") or []
     return {
