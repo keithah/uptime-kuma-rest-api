@@ -1,4 +1,4 @@
-# uptime-kuma-rest-api
+# kumactl
 
 Python client + tooling for [Uptime Kuma](https://github.com/louislam/uptime-kuma) v2:
 a redacted, typed core client over Socket.IO, an operator CLI, a read-only MCP
@@ -7,9 +7,15 @@ server for agent integrations, and an optional Flask REST adapter.
 ## Install
 
 ```bash
-git clone https://github.com/keithah/uptime-kuma-rest-api.git
-cd uptime-kuma-rest-api
-uv pip install -e .        # or: pip install -e .
+git clone https://github.com/keithah/kumactl.git
+cd kumactl
+uv pip install -e .        # or: pip install kumactl
+```
+
+Alternative from PyPI:
+
+```bash
+pip install kumactl        # or: uv add kumactl
 ```
 
 ## Configuration
@@ -24,26 +30,26 @@ UPTIME_KUMA_PASSWORD=...          # dashboard password, or an API key as usernam
 
 Never commit these. The client redacts secret-bearing fields in every listing it returns.
 
-## CLI (`kuma`)
+## CLI (`kumactl`)
 
 ```bash
 export $(grep -v '^#' ~/.kuma.env | xargs)   # or your own sourcing convention
 
-kuma health                                   # connectivity + auth check
-kuma monitors list --json                     # all monitors (normalized)
-kuma monitors find --query sea --json         # substring/fnmatch on name+tags
-kuma heartbeats --monitor-id 25 --json        # recent beats for one monitor
-kuma incident-context --monitor "SEA SSH"     # composite incident brief
-kuma notifications list --json                # redacted notification configs
-kuma maintenance list --json
+kumactl health                                   # connectivity + auth check
+kumactl monitors list --json                     # all monitors (normalized)
+kumactl monitors find --query sea --json         # substring/fnmatch on name+tags
+kumactl heartbeats --monitor-id 25 --json        # recent beats for one monitor
+kumactl incident-context --monitor "SEA SSH"     # composite incident brief
+kumactl notifications list --json                # redacted notification configs
+kumactl maintenance list --json
 
 # operator-gated mutations (require --yes; dry-run by default)
-kuma bulk-update --name-pattern 'mseast*' \
+kumactl bulk-update --name-pattern 'mseast*' \
     --updates '{"maxretries": 2}' --dry-run
-kuma bulk-update --name-pattern 'mseast*' \
+kumactl bulk-update --name-pattern 'mseast*' \
     --updates '{"maxretries": 2}' --yes
-kuma set-notifications --name-pattern 'ms*' --notification-ids 2,3 --dry-run
-kuma monitor pause --id 25 --yes
+kumactl set-notifications --name-pattern 'ms*' --notification-ids 2,3 --dry-run
+kumactl monitor pause --id 25 --yes
 ```
 
 Exit codes: `0` ok · `1` error · `2` usage · `3` connection · `4` auth · `5` timeout.
@@ -61,17 +67,25 @@ Exposes 7 tools to any MCP client: `health`, `list_monitors`, `find_monitors`,
 `kuma_incident_context`. No mutation tools are registered.
 
 The wrapper reads credentials from `~/.kuma.env` (or the file named by
-`KUMA_ENV_FILE`).
+`KUMACTL_ENV_FILE`, falling back to `KUMA_ENV_FILE`).
 
-Hermes config example (`hermes mcp add --help` shows the equivalent one-shot command):
+Hermes config example (native Streamable HTTP):
+
+```bash
+hermes mcp add kumactl --url http://127.0.0.1:40108/mcp
+```
+
+Stdio wrapper example (`hermes mcp add --help` shows the equivalent one-shot command):
 
 ```yaml
 mcp_servers:
-  kuma:
-    command: /path/to/uptime-kuma-rest-api/bin/kuma-mcp-wrapper   # sources env, then execs kuma-mcp
+  kumactl:
+    command: /path/to/kumactl/bin/kumactl-mcp-wrapper   # sources env, then execs kumactl-mcp
     connect_timeout: 30
     timeout: 60
 ```
+
+For Streamable HTTP, run `kumactl-mcp --transport streamable-http --host 127.0.0.1 --port 40108 --path /mcp` (via `bin/kumactl-mcp-wrapper`).
 
 ## Agent skill
 
@@ -81,7 +95,7 @@ mutations) ships at
 Install it into Hermes with:
 
 ```bash
-hermes skills install https://raw.githubusercontent.com/keithah/uptime-kuma-rest-api/main/skills/uptime-kuma-operations/SKILL.md --yes
+hermes skills install https://raw.githubusercontent.com/keithah/kumactl/main/skills/uptime-kuma-operations/SKILL.md --yes
 ```
 
 ## REST adapter (optional)

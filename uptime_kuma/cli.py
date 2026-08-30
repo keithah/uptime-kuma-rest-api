@@ -15,11 +15,6 @@ EXIT_CONNECTION = 3
 EXIT_AUTH = 4
 EXIT_TIMEOUT = 5
 
-READ_METHODS = {
-    "health": "health",
-}
-
-
 def create_client(cfg: Config | None = None) -> KumaClient:
     return KumaClient(cfg)
 
@@ -113,8 +108,7 @@ def cmd_incident_context(client: KumaClient, ns) -> int:
 # ------------------------------------------------------------------ mutations (operator-only)
 
 def _mutate(client: KumaClient, event: str, data: Any) -> dict:
-    client.ensure_connected()
-    resp = client._transport.emit_ack(event, data, timeout=client.cfg.request_timeout)
+    resp = client._call(event, data)
     return resp if isinstance(resp, dict) else {"ok": bool(resp), "raw": resp}
 
 

@@ -96,7 +96,9 @@ def test_ack_only_read_uses_multi_argument_push():
     t = FakeTransport(script={"login": login_ok, "getMonitorList": {"ok": True}})
     c = KumaClient(make_cfg(transport_wait=0.2), transport=t)
     c.ensure_connected()
-    t.fire_push("monitorList", MONITORS, {"ignored": True})
+    import threading
+
+    threading.Timer(0.05, lambda: t.fire_push("monitorList", MONITORS, {"ignored": True})).start()
     assert c.list_monitors()[0]["id"] == 25
 
 

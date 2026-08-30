@@ -39,10 +39,18 @@ class Config:
         ]
         if missing:
             raise KumaError(f"missing required environment variables: {', '.join(missing)}")
+        for var in ("UPTIME_KUMA_TIMEOUT", "UPTIME_KUMA_TRANSPORT_WAIT"):
+            raw = os.getenv(var)
+            if raw is not None:
+                try:
+                    float(raw)
+                except ValueError:
+                    raise KumaError(f"{var} must be a number, got {raw!r}") from None
         return cls(
             url=os.environ["UPTIME_KUMA_URL"].rstrip("/"),
             username=os.environ["UPTIME_KUMA_USERNAME"],
             password=os.environ["UPTIME_KUMA_PASSWORD"],
             socket_path=os.getenv("UPTIME_KUMA_SOCKET_PATH", "/socket.io"),
             request_timeout=float(os.getenv("UPTIME_KUMA_TIMEOUT", "15")),
+            transport_wait=float(os.getenv("UPTIME_KUMA_TRANSPORT_WAIT", "3.0")),
         )

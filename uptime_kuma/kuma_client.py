@@ -80,7 +80,15 @@ class KumaClient:
         return self._transport_emit_with_reconnect(event, data)
 
     def _read_with_fallback(self, event: str, push_event: str) -> Any:
-        """Ack first; on timeout wait briefly for the push variant before giving up."""
+        """Ack first; on timeout wait briefly for the push variant before giving up.
+
+        The push cache is cleared before emitting so a previous successful read
+        cannot silently satisfy a later one when the server has no new data
+        (e.g. after a monitor was deleted and the server only acks ok:true).
+        """
+        # Drop any stale push so we only accept a fresh one for this call.
+        with self._push_lock:
+            self._latest_pushes.pop(push_event, None)
         try:
             result = self._transport_emit_with_reconnect(event)
             # Kuma often acknowledges the request with {ok: true} and sends
@@ -188,13 +196,15 @@ class KumaClient:
             }
             if status and row["state_label"] != str(status).lower():
                 continue
-            if keyword and str(keyword).lower() not in f"{mon['name']} {mon['target']}".lower():
+            if keyword and str(keyword).lower() not in f"{mon['name']} {row['target'] or ''}".lower():
                 continue
             rows.append(row)
         rows.sort(key=lambda r: r["name"].lower())
         return rows
 
     def find_monitors(self, query: str, limit: int = 20) -> list[dict]:
+        if limit <= 0:
+            return []
         q = (query or "").lower().strip()
         out = []
         for mon in self.list_monitors():
