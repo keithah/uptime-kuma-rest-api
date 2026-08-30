@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+umask 077
+# Prefer KUMACTL_ENV_FILE, fall back to KUMA_ENV_FILE for one-release compat, then default
+ENV_FILE="${KUMACTL_ENV_FILE:-${KUMA_ENV_FILE:-$HOME/.hermes/kuma.env}}"
+[ -r "$ENV_FILE" ] || { printf '%s\n' "kumactl-mcp: missing env file: $ENV_FILE" >&2; exit 78; }
+set -a
+. "$ENV_FILE"
+set +a
+exec /Users/hermes/src/uptime-kuma-rest-api/.venv/bin/kumactl-mcp "$@"
+# NOTE: for installed wheel, wrapper is generated to exec $(dirname $0)/../.venv/bin/kumactl-mcp or `python -m uptime_kuma.mcp_server`; keep repo wrapper absolute for dev
